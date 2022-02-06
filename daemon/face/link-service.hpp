@@ -29,6 +29,11 @@
 #include "face-common.hpp"
 #include "transport.hpp"
 #include "common/counter.hpp"
+#include <ndn-cxx/util/scheduler.hpp>
+#include "multicast-suppression.hpp"
+
+#include "common/global.hpp"
+// #include "common/logger.hpp"
 
 namespace nfd::face {
 
@@ -184,6 +189,15 @@ protected: // upper interface to be invoked in subclass (receive path terminatio
   void
   receiveNack(const lp::Nack& nack, const EndpointId& endpoint);
 
+  void
+  scheduleEntry(Name name, scheduler::EventId& eid)
+  {
+    m_scheduledEntry.emplace(name, eid);
+  }
+
+  bool
+  cancelIfSchdeuled(Name name, int type);
+
 protected: // lower interface to be invoked in subclass (send path termination)
   /** \brief Send a lower-layer packet via Transport.
    */
@@ -215,8 +229,10 @@ private: // lower interface to be overridden in subclass
   doReceivePacket(const Block& packet, const EndpointId& endpoint) = 0;
 
 private:
-  Face* m_face = nullptr;
-  Transport* m_transport = nullptr;
+  Face* m_face;
+  Transport* m_transport;
+  nfd::face::ams::MulticastSuppression m_multicastSuppression;
+  std::map <ndn::Name, const scheduler::EventId > m_scheduledEntry;
 };
 
 inline ssize_t
