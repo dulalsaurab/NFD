@@ -30,7 +30,7 @@ reach C1. Thus, DEFAULT_INSTANT_LIFETIME = 30ms*/
 const time::milliseconds DEFAULT_INSTANT_LIFETIME = 30_ms;
 const double DUPLICATE_THRESHOLD = 1.5; // parameter to tune
 const double ADATIVE_DECREASE = 4.0;
-const double MULTIPLICATIVE_INCREASE = 1.5;
+const double MULTIPLICATIVE_INCREASE = 1.2;
 
 // in milliseconds ms
 // probably we need to provide sufficient time for other party to hear you?? MAX_PROPAGATION_DELAY??
@@ -129,8 +129,9 @@ NameTree::getSuppressionTimer(const std::string& name)
   m_lastForwardStaus is set to true if this node has successfully forwarded an interest or data
   else is set to false.
   start with 15ms, MAX propagation time, for a node to hear other node
+  or start with 1ms, and let node find stable suppression time region?
 */
-EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateCount = 0, double suppressionTime = 15)
+EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateCount = 0, double suppressionTime = 1)
 : m_expMovingAveragePrev (expMovingAverage)
 , m_expMovingAverageCurrent (expMovingAverage)
 , m_currentSuppressionTime(suppressionTime)
