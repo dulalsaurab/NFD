@@ -19,7 +19,7 @@ public:
 
   NameTree();
 
-  void 
+  void
   insert(std::string prefix, double value);
 
   double
@@ -131,7 +131,7 @@ public:
   NameTree*
   getNameTree(char type)
   {
-    return (type =='i') ? &m_interestNameTree : &m_dataNameTree; 
+    return (type =='i') ? &m_interestNameTree : &m_dataNameTree;
   }
 
   bool
