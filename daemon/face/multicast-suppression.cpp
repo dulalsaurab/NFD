@@ -29,8 +29,8 @@ reach C1. Thus, DEFAULT_INSTANT_LIFETIME = 30ms*/
 
 const time::milliseconds DEFAULT_INSTANT_LIFETIME = 30_ms;
 const double DUPLICATE_THRESHOLD = 1.5; // parameter to tune
-const double ADATIVE_DECREASE = 4.0;
-const double MULTIPLICATIVE_INCREASE = 1.3;
+const double ADATIVE_DECREASE = 10.0;
+const double MULTIPLICATIVE_INCREASE = 1.5;
 
 // in milliseconds ms
 // probably we need to provide sufficient time for other party to hear you?? MAX_PROPAGATION_DELAY??
