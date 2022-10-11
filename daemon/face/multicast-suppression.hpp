@@ -85,6 +85,8 @@ private:
   scheduler::EventId m_expirationId;
   double m_computedMaxSuppressionTime;
   int m_lastDuplicateCount;
+  int m_maxDuplicateCount;
+  double m_minSuppressionTime;
   double m_ssthress;
   int ignore;
 };

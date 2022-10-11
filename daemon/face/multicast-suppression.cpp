@@ -27,10 +27,10 @@ if the neighbor didnt received the packet from C1 in 15 ms, it will forward its 
 in the network is 2, both nodes C1 & C2 should record dc = 2. For this to happen, it takes about 15ms for the packet from C2 to
 reach C1. Thus, DEFAULT_INSTANT_LIFETIME = 30ms*/
 
-const time::milliseconds DEFAULT_INSTANT_LIFETIME = 30_ms;
+const time::milliseconds DEFAULT_INSTANT_LIFETIME = 30_ms; // 2*MAX_PROPOGATION_DELAY
 const double DUPLICATE_THRESHOLD = 1.5; // parameter to tune
-const double ADATIVE_DECREASE = 10.0;
-const double MULTIPLICATIVE_INCREASE = 1.5;
+const double ADATIVE_DECREASE = 5.0;
+const double MULTIPLICATIVE_INCREASE = 1.3;
 
 // in milliseconds ms
 // probably we need to provide sufficient time for other party to hear you?? MAX_PROPAGATION_DELAY??
@@ -120,7 +120,7 @@ NameTree::getSuppressionTimer(const std::string& name)
   double val, suppressionTime;
   val = longestPrefixMatch(name);
   suppressionTime = (val == UNSET) ? minSuppressionTime : val;
-  time::milliseconds suppressionTimer (getRandomNumber(static_cast<int> (suppressionTime))); // timer is randomized value
+  time::milliseconds suppressionTimer (getRandomNumber(static_cast<int> (2*suppressionTime))); // timer is randomized value
   NFD_LOG_INFO("Suppression time: " << suppressionTime << " Suppression timer: " << suppressionTimer);
   return suppressionTimer;
 }
@@ -131,12 +131,14 @@ NameTree::getSuppressionTimer(const std::string& name)
   start with 15ms, MAX propagation time, for a node to hear other node
   or start with 1ms, and let node find stable suppression time region?
 */
-EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateCount = 0, double suppressionTime = 15)
+EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateCount = 0, double suppressionTime = 1)
 : m_expMovingAveragePrev (expMovingAverage)
 , m_expMovingAverageCurrent (expMovingAverage)
 , m_currentSuppressionTime(suppressionTime)
 , m_computedMaxSuppressionTime(suppressionTime)
 , m_lastDuplicateCount(lastDuplicateCount)
+, m_maxDuplicateCount (1)
+, m_minSuppressionTime(minSuppressionTime)
 , m_ssthress(suppressionTime/2.0)
 , ignore(0)
 {
@@ -168,12 +170,18 @@ EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded)
   }
   else
   {
-    this->m_expMovingAverageCurrent =  round ((DISCOUNT_FACTOR*duplicateCount
-                                               + (1 - DISCOUNT_FACTOR)*this->m_expMovingAverageCurrent)*10.0)/10.0;
-
+    this->m_expMovingAverageCurrent =  round ((DISCOUNT_FACTOR*duplicateCount + 
+                                             (1 - DISCOUNT_FACTOR)*this->m_expMovingAverageCurrent)*10.0)/10.0;
     // if this node hadn't forwarded don't update the delay timer ???
-    updateDelayTime(wasForwarded);
   }
+  if (m_maxDuplicateCount < duplicateCount) { m_maxDuplicateCount = duplicateCount; }
+  
+  if (m_maxDuplicateCount > 1)
+    this->m_minSuppressionTime = (float) MAX_PROPOGATION_DELAY;
+  else if (m_maxDuplicateCount == 1 && this->m_minSuppressionTime > 1)
+      this->m_minSuppressionTime--;
+  
+  updateDelayTime(wasForwarded);
 
   NFD_LOG_INFO("Moving average" << " before: " << m_expMovingAveragePrev
                                 << " after: " << m_expMovingAverageCurrent
@@ -190,16 +198,15 @@ EMAMeasurements::updateDelayTime(bool wasForwarded)
     double temp;
     // Implicit action: if you haven’t reached the goal, but your moving average is decreasing then do nothing.
     if (m_expMovingAverageCurrent > DUPLICATE_THRESHOLD &&
-      m_expMovingAverageCurrent >= m_expMovingAveragePrev )
-    {
+      m_expMovingAverageCurrent >= m_expMovingAveragePrev ) {
       // only increase the suppression timer if this node as forwarded
       if (wasForwarded)
         temp = m_currentSuppressionTime * MULTIPLICATIVE_INCREASE; // ADATIVE_DECREASE;
       else
         temp = m_currentSuppressionTime;
     }
-    else if (m_expMovingAverageCurrent <= DUPLICATE_THRESHOLD)
-    {
+    else if (m_expMovingAverageCurrent <= DUPLICATE_THRESHOLD &&
+            m_expMovingAverageCurrent <= m_expMovingAveragePrev) {
       // uncomment line below if want to enable ssthress
       // temp = (m_currentSuppressionTime > m_ssthress) ? m_currentSuppressionTime - ADATIVE_DECREASE
                                                     //  : m_currentSuppressionTime - 1.0;
@@ -208,11 +215,9 @@ EMAMeasurements::updateDelayTime(bool wasForwarded)
     else
       temp = m_currentSuppressionTime;
 
-    m_currentSuppressionTime =  std::min(std::max(minSuppressionTime, temp), maxSuppressionTime);
-
-    // updated the max if its smaller than current suppression time
-    if (m_currentSuppressionTime > m_computedMaxSuppressionTime)
-    {
+    m_currentSuppressionTime =  std::min(std::max(m_minSuppressionTime, temp), maxSuppressionTime);
+    // updated the max if its smaller than current suppression time --- we are not using this anymore 10/03/22
+    if (m_currentSuppressionTime > m_computedMaxSuppressionTime) {
       m_computedMaxSuppressionTime = m_currentSuppressionTime;
       setSSthress(m_computedMaxSuppressionTime);
     }
@@ -227,8 +232,8 @@ MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
     auto it = m_interestHistory.find(name);
     if (it == m_interestHistory.end()) // check if interest is already in the map
     {
-      auto forwardStatus = isForwarded ? true : getForwardedStatus(name, 'i');
-      m_interestHistory.emplace(name, ObjectHistory{1, forwardStatus});
+      // auto forwardStatus = isForwarded ? true : getForwardedStatus(name, 'i');
+      m_interestHistory.emplace(name, ObjectHistory{1, isForwarded});
       NFD_LOG_INFO ("Interest: " << name << " inserted into map");
 
       //  remove the entry after the lifetime expries
@@ -238,7 +243,13 @@ MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
     }
     else {
       NFD_LOG_INFO("Counter for interest " << name << " incremented");
-      ++it->second.counter;
+      if (!getForwardedStatus(name, 'i') && isForwarded) {
+        ++it->second.counter;
+        it->second.isForwarded = true;
+      }
+      else {
+        ++it->second.counter;
+      }
     }
 }
 
@@ -251,8 +262,7 @@ MulticastSuppression::recordData(Data data, bool isForwarded)
     if (it == m_dataHistory.end())
     {
       NFD_LOG_INFO("Inserting data " << name << " into the map");
-      auto forwardStatus = isForwarded ? true : getForwardedStatus(name, 'd');
-      m_dataHistory.emplace(name, ObjectHistory{1, forwardStatus});
+      m_dataHistory.emplace(name, ObjectHistory{1, isForwarded});
 
       time::milliseconds entryLifetime = DEFAULT_INSTANT_LIFETIME;
       NFD_LOG_INFO("Erasing the data from the map in : " << entryLifetime);
@@ -260,8 +270,24 @@ MulticastSuppression::recordData(Data data, bool isForwarded)
     }
     else
     {
-      NFD_LOG_INFO("Counter for  data " << name << " incremented");
-      ++it->second.counter;
+      /* these two flags can give rise to 4 different cases
+        1. previously forwaded, now received:  increase counter, not the flag
+        2. previously received, now received:  increase counter, not the flag
+        3. previously forwaded, now trying to forward: ignore, no need to increase the counter (only for data forwading)
+          (if only one node, need to forward anyway as soon as possible)
+        3. previously received, now trying to forward: increase counter, update flag 
+      */
+      if (!getForwardedStatus(name, 'd') && isForwarded) {
+        NFD_LOG_INFO("Counter for  data " << name << " incremented, but the flag is not updated");
+        ++it->second.counter;
+        it->second.isForwarded = true;
+      }
+      else if (!isForwarded) {
+        NFD_LOG_INFO("Counter for  data " << name << " incremented , no change in flag");
+        ++it->second.counter;
+      }
+      else NFD_LOG_INFO("do nothing"); // do nothing 
+      
     }
     // need to check if we have the interest in the map
     // if present, need to remove it from the map
