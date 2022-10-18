@@ -46,12 +46,12 @@ int maxIgnore = 3;
 int
 getSeed()
 {
-    std::string line;
-    std::ifstream f ("seed"); // read file and return the value
-    getline(f, line);
-    auto seed = std::stoi (line);
-    NFD_LOG_INFO ("value of the seed: " << seed);
-    return seed;
+  std::string line;
+  std::ifstream f ("seed"); // read file and return the value
+  getline(f, line);
+  auto seed = std::stoi (line);
+  NFD_LOG_INFO ("value of the seed: " << seed);
+  return seed;
 }
 
 int
@@ -201,7 +201,7 @@ EMAMeasurements::updateDelayTime(bool wasForwarded)
       m_expMovingAverageCurrent >= m_expMovingAveragePrev ) {
       // only increase the suppression timer if this node as forwarded
       if (wasForwarded)
-        temp = m_currentSuppressionTime * MULTIPLICATIVE_INCREASE; // ADATIVE_DECREASE;
+        temp = m_currentSuppressionTime * MULTIPLICATIVE_INCREASE;
       else
         temp = m_currentSuppressionTime;
     }
