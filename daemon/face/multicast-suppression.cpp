@@ -38,6 +38,9 @@ const double minSuppressionTime = 6.0f;
 const double maxSuppressionTime= 15000.0f;
 static bool seeded = false;
 
+char FIFO_OBJECT[] = "/tmp/fifo_suppression_value";
+char FIFO_VALUE[] = "/tmp/fifo_object_details";
+
 unsigned int UNSET = -1234;
 int CHARACTER_SIZE = 126;
 int maxIgnore = 3;
@@ -66,6 +69,67 @@ getRandomNumber(int upperBound)
   }
   return std::rand() % upperBound;
 }
+
+
+/* quick and dirty _FIFO*/
+
+_FIFO::_FIFO(char *fifo_suppression_value, char *fifo_object_details)
+: m_fifo_suppression_value(fifo_suppression_value)
+, m_fifo_object_details(fifo_object_details)
+{
+  // mknod(m_fifo_object_details, S_IFIFO | 0666, 0);
+  mkfifo(m_fifo_suppression_value, 0666);
+  mkfifo(m_fifo_object_details, 0666);
+}
+
+void
+_FIFO::fifo_write(std::string  message, int duplicate)
+{
+  auto fifo = open(m_fifo_object_details, O_RDWR);
+  if (!fifo)
+  {
+    std::cout << "Couldn't open fifo file" << std::endl;
+    return;
+  }
+  try {
+      std::string message_dup = "|"+message + "|"+std::to_string(duplicate)+"|";
+      std::cout << "This is the message to write: " << message_dup << std::endl;
+      write(fifo, message_dup.c_str(), sizeof(message_dup));
+      // write(fifo, dup.c_str(),  sizeof(dup));
+    }
+    catch (const std::exception &e) {
+      std::cout << "Unfortunately came here" << std::endl;
+      std::cerr << e.what() << '\n';
+    }
+    close(fifo);
+}
+
+time::milliseconds
+_FIFO::fifo_read()
+{
+  char buf[10];
+  auto fifo = open(m_fifo_suppression_value, O_RDONLY);
+  read(fifo, &buf, sizeof(char) * 10);
+  std::cout << "Trying to get message from python" << buf << std::endl;
+  int suppression_value = 0;
+  std::string s (buf);
+  std::string delimiter = "|";
+  size_t pos = 0;
+  std::string token;
+  while ((pos = s.find(delimiter)) != std::string::npos)
+  {
+      token = s.substr(0, pos);
+      s.erase(0, pos + delimiter.length());
+  }
+  try {
+    suppression_value = std::stoi(token);
+  } catch (std::exception const &e) {
+    std::cout << "Couldnt convert char to string" << std::endl;
+    // return time::milliseconds(suppression_value);
+  }
+  return  time::milliseconds(suppression_value);
+}
+
 
 NameTree::NameTree()
 : isLeaf(false)
@@ -147,7 +211,7 @@ NameTree::getSuppressionTimer(const std::string& name)
   start with 15ms, MAX propagation time, for a node to hear other node
   or start with 1ms, and let node find stable suppression time region?
 */
-EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateCount = 0, double suppressionTime = 1)
+EMAMeasurements::EMAMeasurements(double expMovingAverage, int lastDuplicateCount = 0, double suppressionTime = 1)
 : m_expMovingAveragePrev (expMovingAverage)
 , m_expMovingAverageCurrent (expMovingAverage)
 , m_currentSuppressionTime(suppressionTime)
@@ -166,7 +230,7 @@ EMAMeasurements::EMAMeasurements(double expMovingAverage = 0, int lastDuplicateC
  EMA  = alpha*Dt + (1 - alpha) * EMA t-1
 */
 void
-EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded)
+EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded, std::string name)
 {
   this->ignore  = (duplicateCount > m_lastDuplicateCount) ? (ignore +1) : 0;
 
@@ -197,7 +261,7 @@ EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded)
   else if (m_maxDuplicateCount == 1 && this->m_minSuppressionTime > 1)
       this->m_minSuppressionTime--;
 
-  updateDelayTime(wasForwarded);
+  updateDelayTime(wasForwarded, name);
 
   NFD_LOG_INFO("Moving average" << " before: " << m_expMovingAveragePrev
                                 << " after: " << m_expMovingAverageCurrent
@@ -209,8 +273,19 @@ EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded)
 }
 
 void
-EMAMeasurements::updateDelayTime(bool wasForwarded)
+EMAMeasurements::updateDelayTime(bool wasForwarded, std::string name)
 {
+    /* this is where we should call reinforcement module and get the suppression time
+      information to pass
+      1. m_expMovingAverageCurrent
+      2. m_expMovingAveragePrev
+      3. prefix (name) to compute suppression time for
+      4. DUPLICATE_THRESHOLD
+      5. wasForwarded? not sure
+
+    */ 
+
+
     double temp;
     // Implicit action: if you haven’t reached the goal, but your moving average is decreasing then do nothing.
     if (m_expMovingAverageCurrent > DUPLICATE_THRESHOLD &&
@@ -239,6 +314,11 @@ EMAMeasurements::updateDelayTime(bool wasForwarded)
     }
 }
 
+
+MulticastSuppression::MulticastSuppression()
+:m_fifo(FIFO_VALUE, FIFO_OBJECT)
+{
+}
 
 void
 MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
@@ -376,9 +456,9 @@ MulticastSuppression::updateMeasurement(Name name, char type)
                                           // dont delete the entry in the nametree, just unset the value
                                       nameTree->insert(name.toUri(), UNSET);
                                   });
-      auto& emaEntry = vec->emplace(name, std::make_shared<EMAMeasurements>()).first->second;
+      auto& emaEntry = vec->emplace(name, std::make_shared<EMAMeasurements>(0)).first->second;
       emaEntry->setEMAExpiration(expirationId);
-      emaEntry->addUpdateEMA(duplicateCount, wasForwarded);
+      emaEntry->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
       // nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime(), emaEntry->getMinimumSuppressionTime());
       nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime());
     }
@@ -395,7 +475,7 @@ MulticastSuppression::updateMeasurement(Name name, char type)
                                       });
 
       it->second->setEMAExpiration(expirationId);
-      it->second->addUpdateEMA(duplicateCount, wasForwarded);
+      it->second->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
       nameTree->insert(name.toUri(), it->second->getCurrentSuppressionTime());
     }
 }
