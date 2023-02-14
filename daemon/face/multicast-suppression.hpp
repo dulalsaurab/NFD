@@ -1,6 +1,15 @@
 #include "core/common.hpp"
-#include <chrono>
 #include <ndn-cxx/util/random.hpp>
+
+#include <chrono>
+// #include "algorithm.hpp"
+#include <vector>
+#include <sys/stat.h>
+#include <iostream>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sstream>
+
 
 #ifndef NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
 #define NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
@@ -8,6 +17,26 @@
 namespace nfd {
 namespace face {
 namespace ams {
+
+
+class _FIFO
+{
+public:
+  
+  _FIFO(char *fifo_suppression_value, char *fifo_object_details);
+  
+  void
+  fifo_write(std::string  message, int duplicate);
+  
+  time::milliseconds 
+  fifo_read();
+
+private:
+  char* m_fifo_suppression_value;
+  char* m_fifo_object_details;
+
+};
+
 
 /* Simple trie implementaiton for the name tree, and prefix match */
 class NameTree
@@ -39,7 +68,7 @@ public:
   EMAMeasurements(double expMovingAverage, int lastDuplicateCount, double suppressionTime);
 
   void
-  addUpdateEMA(int duplicateCount, bool wasForwarded);
+  addUpdateEMA(int duplicateCount, bool wasForwarded, std::string name);
 
   scheduler::EventId&
   getEMAExpiration()
@@ -66,7 +95,7 @@ public:
   }
 
   void
-  updateDelayTime(bool wasForwarded);
+  updateDelayTime(bool wasForwarded, std::string name);
 
   double
   getCurrentSuppressionTime()
@@ -103,6 +132,8 @@ private:
 class MulticastSuppression
 {
 public:
+  
+  MulticastSuppression();
 
   struct ObjectHistory
   {
@@ -191,6 +222,7 @@ private:
   std::map<Name, std::shared_ptr<EMAMeasurements>> m_EMA_interest;
   NameTree m_dataNameTree;
   NameTree m_interestNameTree;
+  _FIFO m_fifo;
 };
 } //namespace ams
 } //namespace face
