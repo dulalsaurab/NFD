@@ -1,15 +1,25 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2014-2022, Saurab Dulal, The University of Memphis.
+ *
+ * This file is part of NFD (Named Data Networking Forwarding Daemon).
+ * See AUTHORS.md for complete list of NFD authors and contributors.
+ *
+ * NFD is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * NFD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * NFD, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "multicast-suppression.hpp"
-#include <tuple>
-#include <functional>
-#include <iostream>
-#include "common/global.hpp"
-#include "common/logger.hpp"
-#include <algorithm>
-#include <numeric>
-#include<stdio.h>
-#include <random>
-#include <math.h>
-#include <fstream>
+
+// #include "core/common.hpp"
 
 namespace nfd {
 namespace face {
@@ -29,13 +39,13 @@ reach C1. Thus, DEFAULT_INSTANT_LIFETIME = 30ms*/
 
 const time::milliseconds DEFAULT_INSTANT_LIFETIME = 12_ms; // 2*MAX_PROPOGATION_DELAY
 const double DUPLICATE_THRESHOLD = 1.5; // parameter to tune
-const double ADATIVE_DECREASE = 5.0;
-const double MULTIPLICATIVE_INCREASE = 1.3;
+// const double ADATIVE_DECREASE = 5.0;
+// const double MULTIPLICATIVE_INCREASE = 1.3;
 
 // in milliseconds ms
 // probably we need to provide sufficient time for other party to hear you?? MAX_PROPAGATION_DELAY??
 const double minSuppressionTime = 6.0f;
-const double maxSuppressionTime= 15000.0f;
+// const double maxSuppressionTime= 15000.0f;
 static bool seeded = false;
 
 char FIFO_OBJECT[] = "/tmp/fifo_suppression_value";
@@ -83,7 +93,7 @@ _FIFO::_FIFO(char *fifo_suppression_value, char *fifo_object_details)
 }
 
 void
-_FIFO::fifo_write(std::string  message, int duplicate)
+_FIFO::fifo_write(const std::string& content)
 {
   auto fifo = open(m_fifo_object_details, O_RDWR);
   if (!fifo)
@@ -92,9 +102,9 @@ _FIFO::fifo_write(std::string  message, int duplicate)
     return;
   }
   try {
-      std::string message_dup = "|"+message + "|"+std::to_string(duplicate)+"|";
-      std::cout << "This is the message to write: " << message_dup << std::endl;
-      write(fifo, message_dup.c_str(), sizeof(message_dup));
+      // std::string message_dup = "|"+message + "|"+std::to_string(duplicate)+"|";
+      std::cout << "This is the message to write: " << content << std::endl;
+      write(fifo, content.c_str(), sizeof(content));
       // write(fifo, dup.c_str(),  sizeof(dup));
     }
     catch (const std::exception &e) {
@@ -221,6 +231,7 @@ EMAMeasurements::EMAMeasurements(double expMovingAverage, int lastDuplicateCount
 , m_minSuppressionTime(minSuppressionTime)
 , m_ssthress(suppressionTime/2.0)
 , ignore(0)
+// , m_fifo(FIFO_VALUE, FIFO_OBJECT)
 {
 }
 
@@ -275,50 +286,39 @@ EMAMeasurements::addUpdateEMA(int duplicateCount, bool wasForwarded, std::string
 void
 EMAMeasurements::updateDelayTime(bool wasForwarded, std::string name)
 {
-    /* this is where we should call reinforcement module and get the suppression time
-      information to pass
-      1. m_expMovingAverageCurrent
-      2. m_expMovingAveragePrev
-      3. prefix (name) to compute suppression time for
-      4. DUPLICATE_THRESHOLD
-      5. wasForwarded? not sure
+  /* this is where we should call reinforcement module and get the suppression time
+    information to pass
+    1. m_expMovingAverageCurrent
+    2. m_expMovingAveragePrev
+    3. prefix (name) to compute suppression time for
+    4. DUPLICATE_THRESHOLD
+    5. wasForwarded? not sure
 
-    */ 
+  */
+  // construct message for RL
+  // std::string message_dup = "|"+message + "|"+std::to_string(duplicate)+"|";
 
+  boost::property_tree::ptree message;
 
-    double temp;
-    // Implicit action: if you haven’t reached the goal, but your moving average is decreasing then do nothing.
-    if (m_expMovingAverageCurrent > DUPLICATE_THRESHOLD &&
-      m_expMovingAverageCurrent >= m_expMovingAveragePrev ) {
-      // only increase the suppression timer if this node as forwarded
-      if (wasForwarded)
-        temp = m_currentSuppressionTime * MULTIPLICATIVE_INCREASE;
-      else
-        temp = m_currentSuppressionTime;
-    }
-    else if (m_expMovingAverageCurrent <= DUPLICATE_THRESHOLD &&
-            m_expMovingAverageCurrent <= m_expMovingAveragePrev) {
-      // uncomment line below if want to enable ssthress
-      // temp = (m_currentSuppressionTime > m_ssthress) ? m_currentSuppressionTime - ADATIVE_DECREASE
-                                                    //  : m_currentSuppressionTime - 1.0;
-      temp = m_currentSuppressionTime - ADATIVE_DECREASE;
-    }
-    else
-      temp = m_currentSuppressionTime;
+  message.put("EWMACurr", m_expMovingAverageCurrent);
+  message.put("EWMAPrev", m_expMovingAveragePrev);
+  message.put("name", name);
+  message.put("threshold", DUPLICATE_THRESHOLD);
+  message.put("wasForwarded", wasForwarded);
 
-    m_currentSuppressionTime =  std::min(std::max(m_minSuppressionTime, temp), maxSuppressionTime);
-    // updated the max if its smaller than current suppression time --- we are not using this anymore 10/03/22
-    if (m_currentSuppressionTime > m_computedMaxSuppressionTime) {
-      m_computedMaxSuppressionTime = m_currentSuppressionTime;
-      setSSthress(m_computedMaxSuppressionTime);
-    }
+  std::ostringstream oss;
+  boost::property_tree::write_json(oss, message, false);
+  std::string messageString = oss.str();
+
+  // m_fifo.fifo_write(messageString);
+
 }
 
 
-MulticastSuppression::MulticastSuppression()
-:m_fifo(FIFO_VALUE, FIFO_OBJECT)
-{
-}
+// MulticastSuppression::MulticastSuppression()
+// :m_fifo(FIFO_VALUE, FIFO_OBJECT)
+// {
+// }
 
 void
 MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
@@ -408,7 +408,7 @@ void
 MulticastSuppression::setUpdateExpiration(time::milliseconds entryLifetime, Name name, char type)
 {
   auto vec = getRecorder(type);
-  auto eventId = getScheduler().schedule(entryLifetime, [=]  {
+  auto eventId = m_scheduler.schedule(entryLifetime, [=]  {
     if (vec->count(name) > 0)
     {
       //  record interest into moving average
@@ -435,49 +435,49 @@ MulticastSuppression::setUpdateExpiration(time::milliseconds entryLifetime, Name
 void
 MulticastSuppression::updateMeasurement(Name name, char type)
 {
-    // if the measurment expires, can't the name stay with EMA = 0? so that we dont have to recreate it again later
-    auto vec = getEMARecorder(type);
-    auto nameTree = getNameTree(type);
-    auto duplicateCount = getDuplicateCount(name, type);
-    bool wasForwarded = getForwardedStatus(name, type);
+  // if the measurment expires, can't the name stay with EMA = 0? so that we dont have to recreate it again later
+  auto vec = getEMARecorder(type);
+  auto nameTree = getNameTree(type);
+  auto duplicateCount = getDuplicateCount(name, type);
+  bool wasForwarded = getForwardedStatus(name, type);
 
-    NDN_LOG_INFO("Name:  " << name << " Duplicate Count: " << duplicateCount << " type: " << type);
-    // granularity = name - last component e.g. /a/b --> /a
-    name = name.getPrefix(-1);
-    auto it = vec->find(name);
+  NDN_LOG_INFO("Name:  " << name << " Duplicate Count: " << duplicateCount << " type: " << type);
+  // granularity = name - last component e.g. /a/b --> /a
+  name = name.getPrefix(-1);
+  auto it = vec->find(name);
 
-    // no records
-    if (it == vec->end())
-    {
-      NFD_LOG_INFO("Creating EMA record for name: " << name << " type: " << type);
-      auto expirationId = getScheduler().schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
-                                      if (vec->count(name) > 0)
-                                          vec->erase(name);
-                                          // dont delete the entry in the nametree, just unset the value
-                                      nameTree->insert(name.toUri(), UNSET);
-                                  });
-      auto& emaEntry = vec->emplace(name, std::make_shared<EMAMeasurements>(0)).first->second;
-      emaEntry->setEMAExpiration(expirationId);
-      emaEntry->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
-      // nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime(), emaEntry->getMinimumSuppressionTime());
-      nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime());
-    }
-    // update existing record
-    else
-    {
-      NFD_LOG_INFO("Updating EMA record for name: " << name << " type: " << type);
-      it->second->getEMAExpiration().cancel();
-      auto expirationId = getScheduler().schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
-                                          if (vec->count(name) > 0)
-                                              vec->erase(name);
-                                              // set the value in the nametree = -1
-                                          nameTree->insert(name.toUri(), UNSET);
-                                      });
+  // no records
+  if (it == vec->end())
+  {
+    NFD_LOG_INFO("Creating EMA record for name: " << name << " type: " << type);
+    auto expirationId = m_scheduler.schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
+                                    if (vec->count(name) > 0)
+                                        vec->erase(name);
+                                        // dont delete the entry in the nametree, just unset the value
+                                    nameTree->insert(name.toUri(), UNSET);
+                                });
+    auto& emaEntry = vec->emplace(name, std::make_shared<EMAMeasurements>(0)).first->second;
+    emaEntry->setEMAExpiration(expirationId);
+    emaEntry->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
+    // nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime(), emaEntry->getMinimumSuppressionTime());
+    nameTree->insert(name.toUri(), emaEntry->getCurrentSuppressionTime());
+  }
+  // update existing record
+  else
+  {
+    NFD_LOG_INFO("Updating EMA record for name: " << name << " type: " << type);
+    it->second->getEMAExpiration().cancel();
+    auto expirationId = m_scheduler.schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
+                                        if (vec->count(name) > 0)
+                                            vec->erase(name);
+                                            // set the value in the nametree = -1
+                                        nameTree->insert(name.toUri(), UNSET);
+                                    });
 
-      it->second->setEMAExpiration(expirationId);
-      it->second->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
-      nameTree->insert(name.toUri(), it->second->getCurrentSuppressionTime());
-    }
+    it->second->setEMAExpiration(expirationId);
+    it->second->addUpdateEMA(duplicateCount, wasForwarded, name.toUri());
+    nameTree->insert(name.toUri(), it->second->getCurrentSuppressionTime());
+  }
 }
 
 time::milliseconds

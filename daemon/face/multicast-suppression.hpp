@@ -1,23 +1,55 @@
-#include "core/common.hpp"
-#include <ndn-cxx/util/random.hpp>
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2014-2022, Saurab Dulal, The University of Memphis.
+ *
+ * This file is part of NFD (Named Data Networking Forwarding Daemon).
+ * See AUTHORS.md for complete list of NFD authors and contributors.
+ *
+ * NFD is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * NFD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * NFD, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
+#ifndef NFD_DAEMON_FACE_MULTICAST_SUPPRESSION_HPP
+#define NFD_DAEMON_FACE_MULTICAST_SUPPRESSION_HPP
+
+// #include "common/global.hpp"
+// #include <ndn-cxx/util/random.hpp>
+
+#include "common/global.hpp"
+#include "common/logger.hpp"
+#include "core/common.hpp"
+
+#include <ndn-cxx/util/scheduler.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+#include <tuple>
+#include <functional>
+#include <iostream>
+#include <algorithm>
+#include <numeric>
+#include <stdio.h>
+#include <random>
+#include <math.h>
+#include <fstream>
 #include <chrono>
-// #include "algorithm.hpp"
 #include <vector>
 #include <sys/stat.h>
-#include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sstream>
 
-
-#ifndef NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
-#define NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
-
 namespace nfd {
 namespace face {
 namespace ams {
-
 
 class _FIFO
 {
@@ -26,7 +58,7 @@ public:
   _FIFO(char *fifo_suppression_value, char *fifo_object_details);
   
   void
-  fifo_write(std::string  message, int duplicate);
+  fifo_write(const std::string& content);
   
   time::milliseconds 
   fifo_read();
@@ -45,14 +77,12 @@ public:
   std::map<char, NameTree*> children;
   bool isLeaf;
   double suppressionTime;
-  // double minSuppressionTime;
 
   NameTree();
 
   void
   insert(std::string prefix, double value);
 
-  // std::pair<double, double>
   double
   longestPrefixMatch(const std::string& prefix); //longest prefix match
 
@@ -126,6 +156,7 @@ private:
   double m_minSuppressionTime;
   double m_ssthress;
   int ignore;
+  // _FIFO m_fifo;
 };
 
 
@@ -189,29 +220,29 @@ public:
     return (m_dataHistory.find(name) != m_dataHistory.end());
   }
 
-time::milliseconds
-getRandomTime()
+  time::milliseconds
+  getRandomTime()
   {
     return time::milliseconds(1 + (std::rand() % (10)));
   }
 
-void
-updateMeasurement(Name name, char type);
+  void
+  updateMeasurement(Name name, char type);
 
-// set interest or data expiration
-void
-setUpdateExpiration(time::milliseconds entryLifetime, Name name, char type);
+  // set interest or data expiration
+  void
+  setUpdateExpiration(time::milliseconds entryLifetime, Name name, char type);
 
-time::milliseconds
-getDelayTimer(Name name, char type);
+  time::milliseconds
+  getDelayTimer(Name name, char type);
 
-bool
-getForwardedStatus(ndn::Name prefix, char type)
-{
-  auto recorder = getRecorder(type);
-  auto it = recorder->find(prefix);
-  return it != recorder->end() ? it->second.isForwarded : false; // if record exist, send whatever is the status else send false
-}
+  bool
+  getForwardedStatus(ndn::Name prefix, char type)
+  {
+    auto recorder = getRecorder(type);
+    auto it = recorder->find(prefix);
+    return it != recorder->end() ? it->second.isForwarded : false; // if record exist, send whatever is the status else send false
+  }
 
 private:
 
@@ -222,10 +253,10 @@ private:
   std::map<Name, std::shared_ptr<EMAMeasurements>> m_EMA_interest;
   NameTree m_dataNameTree;
   NameTree m_interestNameTree;
-  _FIFO m_fifo;
+  ndn::Scheduler m_scheduler;
 };
 } //namespace ams
 } //namespace face
 } //namespace nfd
 
-#endif // NFD_DAEMON_FACE_SUPPRESSION_STRATEGY_HPP
+#endif // NFD_DAEMON_FACE_MULTICAST_SUPPRESSION_HPP

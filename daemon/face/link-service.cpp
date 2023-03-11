@@ -26,6 +26,8 @@
 #include "link-service.hpp"
 #include "face.hpp"
 
+#include "common/global.hpp"
+
 namespace nfd::face {
 
 NFD_LOG_INIT(LinkService);

@@ -26,14 +26,11 @@
 #ifndef NFD_DAEMON_FACE_LINK_SERVICE_HPP
 #define NFD_DAEMON_FACE_LINK_SERVICE_HPP
 
+#include "multicast-suppression.hpp"
+
 #include "face-common.hpp"
 #include "transport.hpp"
 #include "common/counter.hpp"
-#include <ndn-cxx/util/scheduler.hpp>
-#include "multicast-suppression.hpp"
-
-#include "common/global.hpp"
-// #include "common/logger.hpp"
 
 namespace nfd::face {
 
