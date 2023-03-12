@@ -316,7 +316,6 @@ EMAMeasurements::updateDelayTime(bool wasForwarded, std::string name)
 
 }
 
-
 void
 MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
 {

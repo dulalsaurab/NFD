@@ -26,6 +26,7 @@
 #include "common/global.hpp"
 #include "common/logger.hpp"
 #include "core/common.hpp"
+<<<<<<< HEAD
 
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -46,6 +47,21 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sstream>
+=======
+#include <ndn-cxx/util/random.hpp>
+
+#include <chrono>
+// #include "algorithm.hpp"
+#include <vector>
+#include <sys/stat.h>
+#include <iostream>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sstream>
+
+
+#ifndef NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
+#define NFD_DAEMON_FACE_AMS_MULTICAST_SUPPRESSION_HPP
 
 namespace nfd {
 namespace face {
@@ -252,6 +268,7 @@ private:
   std::map<Name, std::shared_ptr<EMAMeasurements>> m_EMA_interest;
   NameTree m_dataNameTree;
   NameTree m_interestNameTree;
+  _FIFO m_fifo;
 };
 } //namespace ams
 } //namespace face
