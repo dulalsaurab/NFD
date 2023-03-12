@@ -156,7 +156,7 @@ private:
   double m_minSuppressionTime;
   double m_ssthress;
   int ignore;
-  // _FIFO m_fifo;
+  _FIFO m_fifo;
 };
 
 
@@ -164,7 +164,7 @@ class MulticastSuppression
 {
 public:
   
-  MulticastSuppression();
+  // MulticastSuppression();
 
   struct ObjectHistory
   {
@@ -245,7 +245,6 @@ public:
   }
 
 private:
-
   std::map<ndn::Name, ObjectHistory> m_dataHistory;
   std::map<ndn::Name, ObjectHistory> m_interestHistory;
   std::map <Name, scheduler::EventId> m_objectExpirationTimer;
@@ -253,7 +252,6 @@ private:
   std::map<Name, std::shared_ptr<EMAMeasurements>> m_EMA_interest;
   NameTree m_dataNameTree;
   NameTree m_interestNameTree;
-  ndn::Scheduler m_scheduler;
 };
 } //namespace ams
 } //namespace face

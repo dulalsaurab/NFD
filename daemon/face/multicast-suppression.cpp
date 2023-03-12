@@ -231,7 +231,7 @@ EMAMeasurements::EMAMeasurements(double expMovingAverage, int lastDuplicateCount
 , m_minSuppressionTime(minSuppressionTime)
 , m_ssthress(suppressionTime/2.0)
 , ignore(0)
-// , m_fifo(FIFO_VALUE, FIFO_OBJECT)
+, m_fifo(FIFO_VALUE, FIFO_OBJECT)
 {
 }
 
@@ -310,15 +310,12 @@ EMAMeasurements::updateDelayTime(bool wasForwarded, std::string name)
   boost::property_tree::write_json(oss, message, false);
   std::string messageString = oss.str();
 
-  // m_fifo.fifo_write(messageString);
+  m_fifo.fifo_write(messageString);
+
+  auto suppression_time = m_fifo.fifo_read();
 
 }
 
-
-// MulticastSuppression::MulticastSuppression()
-// :m_fifo(FIFO_VALUE, FIFO_OBJECT)
-// {
-// }
 
 void
 MulticastSuppression::recordInterest(const Interest interest, bool isForwarded)
@@ -408,7 +405,7 @@ void
 MulticastSuppression::setUpdateExpiration(time::milliseconds entryLifetime, Name name, char type)
 {
   auto vec = getRecorder(type);
-  auto eventId = m_scheduler.schedule(entryLifetime, [=]  {
+  auto eventId = getScheduler().schedule(entryLifetime, [=]  {
     if (vec->count(name) > 0)
     {
       //  record interest into moving average
@@ -450,7 +447,7 @@ MulticastSuppression::updateMeasurement(Name name, char type)
   if (it == vec->end())
   {
     NFD_LOG_INFO("Creating EMA record for name: " << name << " type: " << type);
-    auto expirationId = m_scheduler.schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
+    auto expirationId = getScheduler().schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
                                     if (vec->count(name) > 0)
                                         vec->erase(name);
                                         // dont delete the entry in the nametree, just unset the value
@@ -467,7 +464,7 @@ MulticastSuppression::updateMeasurement(Name name, char type)
   {
     NFD_LOG_INFO("Updating EMA record for name: " << name << " type: " << type);
     it->second->getEMAExpiration().cancel();
-    auto expirationId = m_scheduler.schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
+    auto expirationId = getScheduler().schedule(MAX_MEASURMENT_INACTIVE_PERIOD, [=]  {
                                         if (vec->count(name) > 0)
                                             vec->erase(name);
                                             // set the value in the nametree = -1
