@@ -7,18 +7,20 @@ Supported platforms
 NFD is built against a continuous integration system and has been tested on the
 following platforms:
 
-- Ubuntu 18.04 / 20.04 / 22.04
-- Debian 11
+- Ubuntu 20.04 (focal)
+- Ubuntu 22.04 (jammy)
+- Debian 11 (bullseye)
 - CentOS Stream 9
-- macOS 10.15 / 11 / 12 / 13
+- macOS 11 / 12 / 13
 
-NFD is known to work on the following platforms, although they are not officially
+NFD should also work on the following platforms, although they are not officially
 supported:
 
+- Any other recent version of Ubuntu not listed above
 - Alpine >= 3.12
-- Fedora >= 29
-- Gentoo Linux
-- Raspberry Pi OS (formerly Raspbian) >= 2019-06-20
+- Fedora >= 32
+- Any version of Raspberry Pi OS based on Debian 11 (bullseye)
+- macOS 10.15
 - FreeBSD >= 12.2
 
 .. _Install NFD on Ubuntu Linux using the NDN PPA repository:
@@ -91,7 +93,7 @@ checkout the correct release tag (e.g., ``*-0.8.1``) from both repositories.
 Prerequisites
 ~~~~~~~~~~~~~
 
-Install the `ndn-cxx library <https://named-data.net/doc/ndn-cxx/current/INSTALL.html>`__
+Install the `ndn-cxx library <https://docs.named-data.net/ndn-cxx/current/INSTALL.html>`__
 and its prerequisites.
 
 On Linux, NFD needs the following dependencies to enable optional features:
@@ -278,7 +280,7 @@ of NDN using the following applications and libraries.
 
 Sample applications:
 
-    + `Simple examples using the ndn-cxx library <https://named-data.net/doc/ndn-cxx/current/examples.html>`__
+    + `Simple examples using the ndn-cxx library <https://docs.named-data.net/ndn-cxx/current/examples.html>`__
     + `Simple examples using the python-ndn library <https://python-ndn.readthedocs.io/en/latest/src/examples/basic_app.html>`__
 
 Real applications and libraries:
