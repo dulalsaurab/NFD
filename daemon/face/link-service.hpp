@@ -197,7 +197,7 @@ protected: // upper interface to be invoked in subclass (receive path terminatio
   }
 
   bool
-  cancelIfSchdeuled(Name name, int type);
+  cancelIfSchdeuled(Name name, uint8_t objectType);
 
 protected: // lower interface to be invoked in subclass (send path termination)
   /** \brief Send a lower-layer packet via Transport.

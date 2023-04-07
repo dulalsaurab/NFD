@@ -29,6 +29,8 @@
 namespace nfd::face {
 
 uint8_t MAX_PROPAGATION_DELAY = 30;
+const uint8_t OBJECT_TYPE_INTEREST = 0;
+const uint8_t OBJECT_TYPE_DATA = 1;
 
 NFD_LOG_INIT(LinkService);
 
@@ -61,7 +63,7 @@ LinkService::sendInterest(const Interest& interest)
   NFD_LOG_INFO ("Scheduling interest: " <<  interest.getName() << " to forward after: " << suppressionTimer);
 
   auto entry_name = interest.getName();
-  entry_name.appendNumber(0);
+  entry_name.appendNumber(OBJECT_TYPE_INTEREST);
 
   auto eventId = getScheduler().schedule(suppressionTimer, [this, interest, entry_name] {
     NFD_LOG_INFO ("Interest " <<  interest.getName() << " sent, finally");
@@ -88,7 +90,7 @@ LinkService::sendData(const Data& data)
   NFD_LOG_INFO ("Scheduling data: " <<  data.getName() << " to forward after: " << suppressionTimer);
 
   auto entry_name = data.getName();
-  entry_name.appendNumber(1);
+  entry_name.appendNumber(OBJECT_TYPE_DATA);
 
   auto eventId = getScheduler().schedule(suppressionTimer, [this, data, entry_name] {
     NFD_LOG_INFO ("Data " <<  data.getName() << " sent, finally");
@@ -112,9 +114,9 @@ LinkService::sendNack(const ndn::lp::Nack& nack)
 }
 
 bool
-LinkService::cancelIfSchdeuled(Name name, int type)
+LinkService::cancelIfSchdeuled(Name name, uint8_t objectType)
 {
-  auto entry_name = name.appendNumber(type);
+  auto entry_name = name.appendNumber(objectType);
   auto it = m_scheduledEntry.find(entry_name);
   if (it != m_scheduledEntry.end()) {
     it->second.cancel();
@@ -128,14 +130,13 @@ void
 LinkService::receiveInterest(const Interest& interest, const EndpointId& endpoint)
 {
   NFD_LOG_FACE_TRACE(__func__);
-  // record multicast interest
+  // Record multicast interest
   if (this->getFace()->getLinkType() == ndn::nfd::LINK_TYPE_MULTI_ACCESS)
   {
     NFD_LOG_INFO("Multicast interest received: " << interest.getName());
-    // check if a same interest is scheduled, if so drop it
-    if (cancelIfSchdeuled(interest.getName(), 0))
+    // Check if a same interest is scheduled, if so drop it
+    if (cancelIfSchdeuled(interest.getName(), OBJECT_TYPE_INTEREST))
       NDN_LOG_INFO("Interest drop, Interest " << interest.getName() << " overheard, duplicate forwarding dropped");
-    // m_multicastSuppression.recordInterest(interest, false);
   }
   ++this->nInInterests;
   afterReceiveInterest(interest, endpoint);
@@ -145,21 +146,18 @@ void
 LinkService::receiveData(const Data& data, const EndpointId& endpoint)
 {
   NFD_LOG_FACE_TRACE(__func__);
-  // record multicast Data received
+  // Record multicast Data received
   if (this->getFace()->getLinkType() == ndn::nfd::LINK_TYPE_MULTI_ACCESS)
   {
     NFD_LOG_INFO("Multicast data received: " << data.getName());
-    if (cancelIfSchdeuled(data.getName(), 1))
+    if (cancelIfSchdeuled(data.getName(), OBJECT_TYPE_DATA))
       NDN_LOG_INFO("Data drop, Data " << data.getName() << " overheard, duplicate forwarding dropped");
 
-    if (cancelIfSchdeuled(data.getName(), 0)) // also can drop interest if shceduled for this data
-      NDN_LOG_INFO("Interest drop, Data " << data.getName() << " overheard, drop the corresponding scheduled interest"); 
-    
-    // m_multicastSuppression.recordData(data, false);
+    if (cancelIfSchdeuled(data.getName(), OBJECT_TYPE_INTEREST)) // also can drop interest if shceduled for this data
+      NDN_LOG_INFO("Interest drop, Data " << data.getName() << " overheard, drop the corresponding scheduled interest");
   }
 
   ++this->nInData;
-  // record multicast data
   afterReceiveData(data, endpoint);
 }
 
