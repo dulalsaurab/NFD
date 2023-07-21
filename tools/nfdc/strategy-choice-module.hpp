@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2014-2022,  Regents of the University of California,
+ * Copyright (c) 2014-2023,  Regents of the University of California,
  *                           Arizona Board of Regents,
  *                           Colorado State University,
  *                           University Pierre & Marie Curie, Sorbonne University,
@@ -29,14 +29,17 @@
 #include "module.hpp"
 #include "command-parser.hpp"
 
+#include <ndn-cxx/mgmt/nfd/strategy-choice.hpp>
+
 namespace nfd::tools::nfdc {
 
 using ndn::nfd::StrategyChoice;
 
-/** \brief Provides access to NFD Strategy Choice management.
- *  \sa https://redmine.named-data.net/projects/nfd/wiki/StrategyChoice
+/**
+ * \brief Provides access to NFD Strategy Choice management.
+ * \sa https://redmine.named-data.net/projects/nfd/wiki/StrategyChoice
  */
-class StrategyChoiceModule : public Module, noncopyable
+class StrategyChoiceModule : public Module, boost::noncopyable
 {
 public:
   /** \brief Register 'strategy list', 'strategy show', 'strategy set', 'strategy unset' commands.
@@ -65,9 +68,9 @@ public:
   unset(ExecuteContext& ctx);
 
   void
-  fetchStatus(Controller& controller,
+  fetchStatus(ndn::nfd::Controller& controller,
               const std::function<void()>& onSuccess,
-              const Controller::DatasetFailCallback& onFailure,
+              const ndn::nfd::DatasetFailureCallback& onFailure,
               const CommandOptions& options) override;
 
   void

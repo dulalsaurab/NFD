@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2014-2022,  Regents of the University of California,
+ * Copyright (c) 2014-2023,  Regents of the University of California,
  *                           Arizona Board of Regents,
  *                           Colorado State University,
  *                           University Pierre & Marie Curie, Sorbonne University,
@@ -26,6 +26,7 @@
 #ifndef NFD_TOOLS_NFDC_STATUS_REPORT_HPP
 #define NFD_TOOLS_NFDC_STATUS_REPORT_HPP
 
+#include "core/common.hpp"
 #include "module.hpp"
 
 #include <ndn-cxx/face.hpp>
@@ -33,10 +34,6 @@
 #include <ndn-cxx/security/validator.hpp>
 
 namespace nfd::tools::nfdc {
-
-using ndn::Face;
-using ndn::KeyChain;
-using ndn::security::Validator;
 
 enum class ReportFormat {
   XML = 1,
@@ -46,9 +43,10 @@ enum class ReportFormat {
 std::ostream&
 operator<<(std::ostream& os, ReportFormat fmt);
 
-/** \brief Collects and prints NFD status report.
+/**
+ * \brief Collects and prints NFD status report.
  */
-class StatusReport : noncopyable
+class StatusReport : boost::noncopyable
 {
 public:
 #ifdef NFD_WITH_TESTS
@@ -64,26 +62,30 @@ public:
    *          otherwise, error code from any failed section, plus 1000000 * section index
    */
   uint32_t
-  collect(Face& face, KeyChain& keyChain, Validator& validator, const CommandOptions& options);
+  collect(ndn::Face& face, ndn::KeyChain& keyChain, ndn::security::Validator& validator,
+          const CommandOptions& options);
 
-  /** \brief Print an XML report.
-   *  \param os output stream
+  /**
+   * \brief Print an XML report.
+   * \param os output stream
    */
   void
   formatXml(std::ostream& os) const;
 
-  /** \brief Print a text report.
-   *  \param os output stream
+  /**
+   * \brief Print a text report.
+   * \param os output stream
    */
   void
   formatText(std::ostream& os) const;
 
 private:
   NFD_VIRTUAL_WITH_TESTS void
-  processEvents(Face& face);
+  processEvents(ndn::Face& face);
 
 public:
-  /** \brief Modules through which status is collected.
+  /**
+   * \brief Modules through which status is collected.
    */
   std::vector<unique_ptr<Module>> sections;
 };

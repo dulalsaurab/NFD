@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2014-2022,  Regents of the University of California,
+ * Copyright (c) 2014-2023,  Regents of the University of California,
  *                           Arizona Board of Regents,
  *                           Colorado State University,
  *                           University Pierre & Marie Curie, Sorbonne University,
@@ -29,15 +29,18 @@
 #include "module.hpp"
 #include "command-parser.hpp"
 
+#include <ndn-cxx/mgmt/nfd/rib-entry.hpp>
+
 namespace nfd::tools::nfdc {
 
 using ndn::nfd::RibEntry;
 using ndn::nfd::Route;
 
-/** \brief Provides access to NFD RIB management.
- *  \sa https://redmine.named-data.net/projects/nfd/wiki/RibMgmt
+/**
+ * \brief Provides access to NFD RIB management.
+ * \sa https://redmine.named-data.net/projects/nfd/wiki/RibMgmt
  */
-class RibModule : public Module, noncopyable
+class RibModule : public Module, boost::noncopyable
 {
 public:
   /** \brief Register 'route list', 'route show', 'route add', 'route remove' commands.
@@ -66,9 +69,9 @@ public:
   remove(ExecuteContext& ctx);
 
   void
-  fetchStatus(Controller& controller,
+  fetchStatus(ndn::nfd::Controller& controller,
               const std::function<void()>& onSuccess,
-              const Controller::DatasetFailCallback& onFailure,
+              const ndn::nfd::DatasetFailureCallback& onFailure,
               const CommandOptions& options) override;
 
   void

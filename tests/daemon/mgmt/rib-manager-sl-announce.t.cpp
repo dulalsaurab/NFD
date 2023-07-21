@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2014-2022,  Regents of the University of California,
+ * Copyright (c) 2014-2023,  Regents of the University of California,
  *                           Arizona Board of Regents,
  *                           Colorado State University,
  *                           University Pierre & Marie Curie, Sorbonne University,
@@ -178,7 +178,7 @@ protected:
   unique_ptr<RibManager> manager;
 
 private:
-  ndn::util::DummyClientFace m_face;
+  ndn::DummyClientFace m_face;
   ndn::nfd::Controller m_nfdController;
   Dispatcher m_dispatcher;
   MockFibUpdater m_fibUpdater;
@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(AnnounceReplace)
 
 BOOST_AUTO_TEST_CASE(AnnounceExpired)
 {
-  auto pa = makeTrustedAnn("/awrVv6V7", 1_h, std::pair(-3_h, -1_h));
+  auto pa = makeTrustedAnn("/awrVv6V7", 1_h, ndn::security::ValidityPeriod::makeRelative(-3_h, -1_h));
   BOOST_CHECK_EQUAL(slAnnounceSync(pa, 9087, 1_h), SlAnnounceResult::EXPIRED);
 
   BOOST_CHECK(findAnnRoute("/awrVv6V7", 9087) == nullptr);

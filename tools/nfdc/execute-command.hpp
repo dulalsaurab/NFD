@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2014-2022,  Regents of the University of California,
+ * Copyright (c) 2014-2023,  Regents of the University of California,
  *                           Arizona Board of Regents,
  *                           Colorado State University,
  *                           University Pierre & Marie Curie, Sorbonne University,
@@ -34,19 +34,15 @@
 #include <ndn-cxx/mgmt/nfd/control-command.hpp>
 #include <ndn-cxx/mgmt/nfd/control-parameters.hpp>
 #include <ndn-cxx/mgmt/nfd/control-response.hpp>
-#include <ndn-cxx/mgmt/nfd/status-dataset.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 
 namespace nfd::tools::nfdc {
 
-using ndn::Face;
-using ndn::KeyChain;
 using ndn::nfd::ControlParameters;
 using ndn::nfd::ControlResponse;
-using ndn::nfd::Controller;
 
 /**
- * \brief Context for command execution
+ * \brief Context for command execution.
  */
 class ExecuteContext
 {
@@ -62,13 +58,13 @@ public:
   /** \return handler for command execution failure
    *  \param commandName command name used in error message (present continuous tense)
    */
-  Controller::CommandFailCallback
+  ndn::nfd::CommandFailureCallback
   makeCommandFailureHandler(const std::string& commandName);
 
   /** \return handler for dataset retrieval failure
    *  \param datasetName dataset name used in error message (noun phrase)
    */
-  Controller::DatasetFailCallback
+  ndn::nfd::DatasetFailureCallback
   makeDatasetFailureHandler(const std::string& datasetName);
 
 public:
@@ -80,13 +76,13 @@ public:
   std::ostream& out; ///< output stream
   std::ostream& err; ///< error stream
 
-  Face& face;
-  KeyChain& keyChain;
-  Controller& controller;
+  ndn::Face& face;
+  ndn::KeyChain& keyChain;
+  ndn::nfd::Controller& controller;
 };
 
 /**
- * \brief A function to execute a command
+ * \brief A function to execute a command.
  */
 using ExecuteCommand = std::function<void(ExecuteContext&)>;
 
